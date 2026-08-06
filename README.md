@@ -1,5 +1,7 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+See [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for folder responsibilities, route groups, feature boundaries, and naming conventions, and [`docs/DESIGN_SYSTEM.md`](./docs/DESIGN_SYSTEM.md) for design tokens, typography, components, layout, and motion.
+
 ## Getting Started
 
 First, run the development server:

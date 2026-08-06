@@ -1,12 +1,12 @@
 import { z } from "zod";
 
 const envSchema = z.object({
-  NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
-  NEXT_PUBLIC_CONVEX_URL: z.string().url().optional(),
+  NEXT_PUBLIC_APP_URL: z.url().default("http://localhost:3000"),
+  NEXT_PUBLIC_CONVEX_URL: z.url().optional(),
   CONVEX_DEPLOYMENT: z.string().optional(),
   WORKOS_API_KEY: z.string().optional(),
   WORKOS_CLIENT_ID: z.string().optional(),
-  WORKOS_REDIRECT_URI: z.string().url().optional(),
+  WORKOS_REDIRECT_URI: z.url().optional(),
   WORKOS_COOKIE_PASSWORD: z.string().min(32).optional(),
 });
 
