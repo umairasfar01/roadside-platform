@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { LifeBuoy } from "lucide-react";
 import { Body, H2 } from "@/components/patterns/typography";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ROUTES } from "@/constants/routes";
 
 /** The strongest action on the dashboard — always visible, always one tap away. */
 export function AssistanceCard() {
@@ -19,9 +21,12 @@ export function AssistanceCard() {
             </Body>
           </div>
         </div>
-        <Button size="lg" className="w-full sm:w-auto">
+        <Link
+          href={ROUTES.customer.request}
+          className={buttonVariants({ size: "lg", className: "w-full sm:w-auto" })}
+        >
           Request Assistance
-        </Button>
+        </Link>
       </CardContent>
     </Card>
   );
