@@ -49,3 +49,7 @@ export const VEHICLE_OPTIONS: VehicleOption[] = [
     icon: Truck,
   },
 ];
+
+export function findVehicleOption(id: string | undefined): VehicleOption | undefined {
+  return VEHICLE_OPTIONS.find((option) => option.id === id);
+}

@@ -9,14 +9,25 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Grid } from "@/components/layout/grid";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/utils";
-import { VEHICLE_OPTIONS, type VehicleTypeId } from "@/features/customer/data/vehicle-options";
+import {
+  findVehicleOption,
+  VEHICLE_OPTIONS,
+  type VehicleTypeId,
+} from "@/features/customer/data/vehicle-options";
 
 const TOTAL_STEPS = 4;
 
+interface VehicleSelectionStepProps {
+  /** Raw, unvalidated `vehicle` query param — set when returning from a later step. */
+  initialVehicleId?: string;
+}
+
 /** Step 1 of the request-assistance flow: pick which vehicle needs a mechanic. */
-export function VehicleSelectionStep() {
+export function VehicleSelectionStep({ initialVehicleId }: VehicleSelectionStepProps) {
   const router = useRouter();
-  const [selected, setSelected] = useState<VehicleTypeId | null>(null);
+  const [selected, setSelected] = useState<VehicleTypeId | null>(
+    () => findVehicleOption(initialVehicleId)?.id ?? null,
+  );
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const selectedIndex = VEHICLE_OPTIONS.findIndex((option) => option.id === selected);
@@ -56,7 +67,7 @@ export function VehicleSelectionStep() {
 
   function handleContinue() {
     if (!selected) return;
-    router.push(`${ROUTES.customer.request}/issue?vehicle=${selected}`);
+    router.push(`${ROUTES.customer.request}/issue?vehicle=${encodeURIComponent(selected)}`);
   }
 
   return (
