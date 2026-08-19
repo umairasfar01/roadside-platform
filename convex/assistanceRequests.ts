@@ -163,3 +163,34 @@ export const updateAssistanceRequestStatus = mutation({
     return await ctx.db.get("assistanceRequests", args.id);
   },
 });
+
+/**
+ * Lets the authenticated caller cancel their own request. Reuses
+ * ALLOWED_NEXT_STATUS rather than duplicating the lifecycle rules — a
+ * request may only be cancelled if "cancelled" is already a valid next
+ * status for it. A nonexistent request and a request owned by someone else
+ * both fail with the same generic error, so a caller can't use this
+ * mutation to probe which request IDs exist.
+ */
+export const cancelAssistanceRequest = mutation({
+  args: {
+    id: v.id("assistanceRequests"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await requireAuthenticatedUser(ctx);
+
+    const existing = await ctx.db.get("assistanceRequests", args.id);
+    if (!existing || existing.ownerId !== identity.tokenIdentifier) {
+      throw new Error("Assistance request not found.");
+    }
+
+    if (!ALLOWED_NEXT_STATUS[existing.status].includes("cancelled")) {
+      throw new Error(`This request can no longer be cancelled (status: "${existing.status}").`);
+    }
+
+    await ctx.db.patch("assistanceRequests", args.id, {
+      status: "cancelled",
+      updatedAt: Date.now(),
+    });
+  },
+});

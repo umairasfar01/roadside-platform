@@ -1,18 +1,28 @@
 "use client";
 
-import { Component, type ReactNode } from "react";
+import { Component, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { MapPin, Radar } from "lucide-react";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Body, H2, H3 } from "@/components/patterns/typography";
 import { Badge, type badgeVariants } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Grid } from "@/components/layout/grid";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ROUTES } from "@/constants/routes";
 import { api } from "@/convex/_generated/api";
-import type { Doc } from "@/convex/_generated/dataModel";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { findIssueOption } from "@/features/customer/data/issue-options";
 import { findVehicleOption } from "@/features/customer/data/vehicle-options";
 
@@ -92,6 +102,64 @@ function ActiveRequestSkeleton() {
   );
 }
 
+type CancelState = { status: "idle" } | { status: "submitting" } | { status: "error"; message: string };
+
+function CancelRequestControl({ requestId }: { requestId: Id<"assistanceRequests"> }) {
+  const cancelAssistanceRequest = useMutation(api.assistanceRequests.cancelAssistanceRequest);
+  const [open, setOpen] = useState(false);
+  const [state, setState] = useState<CancelState>({ status: "idle" });
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) setState({ status: "idle" });
+  }
+
+  async function handleConfirmCancel() {
+    if (state.status === "submitting") return;
+    setState({ status: "submitting" });
+    try {
+      await cancelAssistanceRequest({ id: requestId });
+      setOpen(false);
+      setState({ status: "idle" });
+    } catch {
+      setState({
+        status: "error",
+        message: "We couldn't cancel your request. Please try again.",
+      });
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger render={<Button variant="outline" size="sm" />}>Cancel request</DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Cancel this request?</DialogTitle>
+          <DialogDescription>
+            We&apos;ll stop looking for a mechanic for this request. You can request assistance
+            again at any time.
+          </DialogDescription>
+        </DialogHeader>
+        {state.status === "error" ? (
+          <Body role="alert" className="text-sm text-destructive">
+            {state.message}
+          </Body>
+        ) : null}
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" />}>Keep request</DialogClose>
+          <Button
+            variant="destructive"
+            disabled={state.status === "submitting"}
+            onClick={handleConfirmCancel}
+          >
+            {state.status === "submitting" ? "Cancelling…" : "Cancel request"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function ActiveRequestCard({ request }: { request: Doc<"assistanceRequests"> }) {
   const vehicle = findVehicleOption(request.vehicleType);
   const issue = findIssueOption(request.issueType);
@@ -142,6 +210,10 @@ function ActiveRequestCard({ request }: { request: Doc<"assistanceRequests"> }) 
         <span className="shrink-0 text-xs text-muted-foreground">
           Requested {formatRequestDate(request.createdAt)}
         </span>
+      </div>
+
+      <div className="flex justify-end">
+        <CancelRequestControl requestId={request._id} />
       </div>
     </CardContent>
   );
