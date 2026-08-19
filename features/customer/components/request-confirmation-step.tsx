@@ -3,17 +3,26 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
-import { CarFront, CheckCircle2, MapPin, NotebookPen, OctagonAlert } from "lucide-react";
+import { CarFront, CheckCircle2, LoaderCircle, MapPin, NotebookPen, OctagonAlert } from "lucide-react";
+import { useMutation } from "convex/react";
 import { Body, H1, H2 } from "@/components/patterns/typography";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ROUTES } from "@/constants/routes";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 import { findVehicleOption } from "@/features/customer/data/vehicle-options";
 import { findIssueOption } from "@/features/customer/data/issue-options";
 
 const TOTAL_STEPS = 4;
+
+type SubmissionState =
+  | { status: "idle" }
+  | { status: "submitting" }
+  | { status: "success"; requestId: Id<"assistanceRequests"> }
+  | { status: "error"; message: string };
 
 interface RequestConfirmationStepProps {
   /** Raw, unvalidated `vehicle` query param from the URL. */
@@ -79,7 +88,8 @@ export function RequestConfirmationStep({
   location,
   details,
 }: RequestConfirmationStepProps) {
-  const [ready, setReady] = useState(false);
+  const createAssistanceRequest = useMutation(api.assistanceRequests.createAssistanceRequest);
+  const [submission, setSubmission] = useState<SubmissionState>({ status: "idle" });
 
   const vehicle = findVehicleOption(vehicleId);
 
@@ -185,6 +195,28 @@ export function RequestConfirmationStep({
   const issueChangeHref = `${ROUTES.customer.request}/issue?vehicle=${encodeURIComponent(resolvedVehicleId)}&issue=${encodeURIComponent(resolvedIssueId)}`;
   const locationChangeHref = `${ROUTES.customer.request}/location?vehicle=${encodeURIComponent(resolvedVehicleId)}&issue=${encodeURIComponent(resolvedIssueId)}`;
 
+  const isSubmitting = submission.status === "submitting";
+  const requestLocation: string = resolvedLocation;
+
+  async function handleRequestAssistance() {
+    if (isSubmitting) return;
+    setSubmission({ status: "submitting" });
+    try {
+      const requestId = await createAssistanceRequest({
+        vehicleType: resolvedVehicleId,
+        issueType: resolvedIssueId,
+        location: requestLocation,
+        details: resolvedDetails ?? undefined,
+      });
+      setSubmission({ status: "success", requestId });
+    } catch {
+      setSubmission({
+        status: "error",
+        message: "We couldn't send your request. Check your connection and try again.",
+      });
+    }
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-8 pb-4">
       {header}
@@ -246,27 +278,45 @@ export function RequestConfirmationStep({
         ) : null}
       </div>
 
-      {ready ? (
+      {submission.status === "success" ? (
         <Alert variant="success">
           <CheckCircle2 aria-hidden="true" />
           <AlertTitle className="flex flex-wrap items-center gap-2">
-            Request ready
-            <Badge variant="success">Ready for submission</Badge>
+            Request submitted
+            <Badge variant="success">Received</Badge>
           </AlertTitle>
           <AlertDescription>
-            Your assistance request is ready to be submitted. Backend submission will be connected
-            in the next phase.
+            Your assistance request has been created. We&apos;ll match you with a mechanic as soon
+            as possible.
           </AlertDescription>
         </Alert>
       ) : (
-        <div className="sticky bottom-0 -mx-4 flex items-center justify-between gap-4 border-t border-border bg-background/95 px-4 py-4 backdrop-blur-sm sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
-          <Link href={locationChangeHref} className={buttonVariants({ variant: "outline" })}>
-            Back
-          </Link>
-          <Button size="lg" onClick={() => setReady(true)}>
-            Request Assistance
-          </Button>
-        </div>
+        <>
+          {submission.status === "error" ? (
+            <Alert variant="destructive">
+              <OctagonAlert aria-hidden="true" />
+              <AlertTitle>Request failed</AlertTitle>
+              <AlertDescription>{submission.message}</AlertDescription>
+            </Alert>
+          ) : null}
+          <div className="sticky bottom-0 -mx-4 flex items-center justify-between gap-4 border-t border-border bg-background/95 px-4 py-4 backdrop-blur-sm sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
+            <Link href={locationChangeHref} className={buttonVariants({ variant: "outline" })}>
+              Back
+            </Link>
+            <Button size="lg" onClick={handleRequestAssistance} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                  Sending request…
+                </>
+              ) : submission.status === "error" ? (
+                "Try again"
+              ) : (
+                "Request Assistance"
+              )}
+            </Button>
+          </div>
+        </>
       )}
     </div>
   );
