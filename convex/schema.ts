@@ -33,7 +33,12 @@ export default defineSchema({
     ),
     createdAt: v.number(),
     updatedAt: v.number(),
+    // Stable, globally unique WorkOS/Convex identity (identity.tokenIdentifier,
+    // i.e. sub+iss) that owns this request. Optional only because a handful of
+    // documents created before authentication existed have no owner — every
+    // request created through createAssistanceRequest always sets it.
+    ownerId: v.optional(v.string()),
   })
-    .index("by_status", ["status"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_owner_createdAt", ["ownerId", "createdAt"])
+    .index("by_owner_status", ["ownerId", "status"]),
 });

@@ -6,7 +6,7 @@ const envSchema = z.object({
   CONVEX_DEPLOYMENT: z.string().optional(),
   WORKOS_API_KEY: z.string().optional(),
   WORKOS_CLIENT_ID: z.string().optional(),
-  WORKOS_REDIRECT_URI: z.url().optional(),
+  NEXT_PUBLIC_WORKOS_REDIRECT_URI: z.url().optional(),
   WORKOS_COOKIE_PASSWORD: z.string().min(32).optional(),
 });
 
@@ -16,6 +16,6 @@ export const env = envSchema.parse({
   CONVEX_DEPLOYMENT: process.env.CONVEX_DEPLOYMENT,
   WORKOS_API_KEY: process.env.WORKOS_API_KEY,
   WORKOS_CLIENT_ID: process.env.WORKOS_CLIENT_ID,
-  WORKOS_REDIRECT_URI: process.env.WORKOS_REDIRECT_URI,
+  NEXT_PUBLIC_WORKOS_REDIRECT_URI: process.env.NEXT_PUBLIC_WORKOS_REDIRECT_URI,
   WORKOS_COOKIE_PASSWORD: process.env.WORKOS_COOKIE_PASSWORD,
 });

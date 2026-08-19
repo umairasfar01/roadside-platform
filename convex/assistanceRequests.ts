@@ -1,5 +1,18 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
+
+/**
+ * Returns the authenticated caller's identity, or throws if signed out.
+ * Uses `tokenIdentifier` (sub+iss) rather than `subject` alone, since
+ * `subject` is only unique within a single identity provider.
+ */
+async function requireAuthenticatedUser(ctx: QueryCtx | MutationCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (!identity) {
+    throw new Error("Unauthorized: you must be signed in to do this.");
+  }
+  return identity;
+}
 
 export const createAssistanceRequest = mutation({
   args: {
@@ -25,6 +38,7 @@ export const createAssistanceRequest = mutation({
     details: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const identity = await requireAuthenticatedUser(ctx);
     const now = Date.now();
 
     return await ctx.db.insert("assistanceRequests", {
@@ -35,21 +49,20 @@ export const createAssistanceRequest = mutation({
       status: "pending",
       createdAt: now,
       updatedAt: now,
+      ownerId: identity.tokenIdentifier,
     });
   },
 });
 
-/**
- * Temporary global request list for the pre-auth phase — returns every
- * assistanceRequests document newest-first, not scoped to any customer.
- * Replace with a customer-scoped query once authentication exists.
- */
+/** The authenticated caller's own assistance requests, newest-first. */
 export const listAssistanceRequests = query({
   args: {},
   handler: async (ctx) => {
+    const identity = await requireAuthenticatedUser(ctx);
+
     return await ctx.db
       .query("assistanceRequests")
-      .withIndex("by_createdAt")
+      .withIndex("by_owner_createdAt", (q) => q.eq("ownerId", identity.tokenIdentifier))
       .order("desc")
       .take(20);
   },
@@ -58,17 +71,21 @@ export const listAssistanceRequests = query({
 const ACTIVE_STATUSES = ["pending", "matching", "assigned", "in_progress"] as const;
 
 /**
- * Newest request that hasn't reached a terminal status yet, or null if none.
- * Temporary global lookup for the pre-auth phase — not scoped to any customer.
+ * The authenticated caller's newest request that hasn't reached a terminal
+ * status yet, or null if none.
  */
 export const getActiveAssistanceRequest = query({
   args: {},
   handler: async (ctx) => {
+    const identity = await requireAuthenticatedUser(ctx);
+
     const newestPerStatus = await Promise.all(
       ACTIVE_STATUSES.map((status) =>
         ctx.db
           .query("assistanceRequests")
-          .withIndex("by_status", (q) => q.eq("status", status))
+          .withIndex("by_owner_status", (q) =>
+            q.eq("ownerId", identity.tokenIdentifier).eq("status", status),
+          )
           .order("desc")
           .first(),
       ),
@@ -106,6 +123,13 @@ const ALLOWED_NEXT_STATUS: Record<RequestStatus, RequestStatus[]> = {
  * and `updatedAt` are ever written; every other field is left untouched.
  * Backend infrastructure for a future mechanic/admin workflow — not called
  * from the customer-facing UI in this phase.
+ *
+ * KNOWN GAP (tracked for the future mechanic/admin auth phase, not fixed
+ * here): this mutation does not check that the caller owns — or is the
+ * assigned mechanic/admin for — the request it's changing. Anyone holding a
+ * valid request ID and an authenticated session can currently transition any
+ * request. Scope this once mechanic/admin roles exist; do not expand this
+ * phase to build that authorization model now.
  */
 export const updateAssistanceRequestStatus = mutation({
   args: {
